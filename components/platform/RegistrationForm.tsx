@@ -244,6 +244,7 @@ export default function RegistrationForm() {
   })
   const [errors, setErrors]                 = useState<FormErrors>({})
   const [firebaseError, setFirebaseError]   = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting]     = useState(false)
   const [focused, setFocused]               = useState<keyof FormState | null>(null)
   const [visible, setVisible]               = useState(false)
@@ -263,6 +264,7 @@ export default function RegistrationForm() {
       setForm(f => ({ ...f, [key]: e.target.value }))
       if (errors[key]) setErrors(er => ({ ...er, [key]: undefined }))
       if (firebaseError) setFirebaseError(null)
+      if (successMessage) setSuccessMessage(null)
     },
     onFocus: () => setFocused(key),
     onBlur:  () => setFocused(null),
@@ -288,6 +290,7 @@ export default function RegistrationForm() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setFirebaseError(null)
+    setSuccessMessage(null)
     const errs = validateForm(form, isLogin)
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setIsSubmitting(true)
@@ -314,10 +317,16 @@ export default function RegistrationForm() {
           password:        form.password,
         })
         
-        // MOSTRAR MENSAJE Y MANDAR AL LOGIN
-        setFirebaseError('✅ Cuenta creada. Te enviamos un correo para verificar tu cuenta. Revisá tu bandeja de entrada o spam antes de iniciar sesión.')
-        setIsLogin(true) 
-        setForm(f => ({...f, password: '', confirmPassword: ''}))
+        // REGISTRO EXITOSO: limpiar form y mostrar mensaje de verificación
+        setSuccessMessage('Revisá tu correo electrónico para verificar tu cuenta y poder iniciar sesión.')
+        setIsLogin(true)
+        setForm({
+          firstName: '', lastName: '', email: '', dni: '',
+          birthDate: '', pais: '', provincia: '', ciudad: '',
+          telefono: '', nivelEducativo: '', genero: '',
+          password: '', confirmPassword: '', consent: false,
+        })
+        setErrors({})
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Ocurrió un error inesperado. Intentá de nuevo.'
@@ -422,7 +431,7 @@ export default function RegistrationForm() {
             <div className="flex bg-[#EEF4FB] rounded-xl p-1 gap-1">
               {([{k:true,l:'Iniciar Sesión'},{k:false,l:'Crear Cuenta'}] as const).map(tab=>(
                 <button key={String(tab.k)} type="button"
-                  onClick={()=>{ setIsLogin(tab.k); setErrors({}); setFirebaseError(null) }}
+                  onClick={()=>{ setIsLogin(tab.k); setErrors({}); setFirebaseError(null); setSuccessMessage(null) }}
                   className={['flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all',
                     isLogin===tab.k?'bg-white text-[#003257] shadow-sm':'text-[#8ca9be] hover:text-[#5a7a8e]',
                   ].join(' ')}>
@@ -441,11 +450,27 @@ export default function RegistrationForm() {
               </p>
             </div>
 
-            {/* Firebase error */}
+            {/* Firebase error — solo errores reales */}
             {firebaseError && (
               <div className="flex gap-2 items-start p-3 rounded-xl bg-red-50 border border-red-200">
                 <span className="text-red-500 flex-shrink-0 text-sm mt-0.5">⚠</span>
                 <span className="text-[11px] text-red-700 leading-relaxed">{firebaseError}</span>
+              </div>
+            )}
+
+            {/* Mensaje de éxito — verificación de correo */}
+            {successMessage && (
+              <div className="flex gap-2.5 items-start p-3.5 rounded-xl border"
+                style={{ background: 'rgba(34,197,94,0.08)', borderColor: 'rgba(34,197,94,0.30)' }}>
+                <CheckCircle2 size={15} className="flex-shrink-0 mt-0.5" style={{ color: '#16a34a' }}/>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[12px] font-bold" style={{ color: '#15803d' }}>
+                    ¡Registro exitoso!
+                  </span>
+                  <span className="text-[11px] leading-relaxed" style={{ color: '#166534' }}>
+                    {successMessage}
+                  </span>
+                </div>
               </div>
             )}
 

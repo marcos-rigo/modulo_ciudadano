@@ -86,7 +86,7 @@ export async function registerWithFirebase(payload: RegisterPayload): Promise<Us
     certificadoEmitido: false,
     creadoEn:        serverTimestamp(),
     actualizadoEn:   serverTimestamp(),
-  }).catch((err) => { throw new Error('Registro en base de datos fallido: ' + err.message) })
+  }).catch(() => {/* non-blocking — no interrumpir el flujo si falla Firestore */})
 
   return credential
 }

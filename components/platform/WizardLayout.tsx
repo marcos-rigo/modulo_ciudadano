@@ -24,6 +24,7 @@ export default function WizardLayout() {
   const activeSubtopicId = useAppStore((s) => s.activeSubtopicId)
   const subtopics        = useAppStore((s) => s.subtopics)
   const goToDashboard    = useAppStore((s) => s.goToDashboard)
+  const setWizardStep    = useAppStore((s) => s.setWizardStep) // NUEVO: Importamos setWizardStep
 
   if (!activeSubtopicId) return null
 
@@ -34,6 +35,19 @@ export default function WizardLayout() {
   if (!subtopicState || !subtopicData) return null
 
   const currentStepIdx = STEPS.findIndex((s) => s.key === subtopicState.currentStep)
+
+  // NUEVO: Lógica de bloqueo
+  // Verificamos si estamos en un paso donde está prohibido retroceder
+  const isLockedBackwards = subtopicState.currentStep === 'quiz' || subtopicState.currentStep === 'result'
+  
+  // Se puede volver atrás si no es el primer paso y no está en los pasos bloqueados
+  const canGoBack = currentStepIdx > 0 && !isLockedBackwards
+
+  const handleGoBack = () => {
+    if (canGoBack) {
+      setWizardStep(subtopicState.id, STEPS[currentStepIdx - 1].key)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#F5F8FC] flex flex-col">
@@ -75,10 +89,17 @@ export default function WizardLayout() {
                 const isDone    = idx < currentStepIdx
                 const isCurrent = idx === currentStepIdx
                 const isFuture  = idx > currentStepIdx
+                
+                // NUEVO: Permitir hacer clic en los pasos previos a través de la barra superior (si no estamos en quiz)
+                const isClickable = isDone && !isLockedBackwards
+
                 return (
                   <div
                     key={step.key}
-                    className={`flex-1 flex flex-col items-center py-2 sm:py-2.5 gap-0.5 relative transition-all ${isFuture ? 'opacity-30' : ''}`}
+                    onClick={() => {
+                      if (isClickable) setWizardStep(subtopicState.id, step.key)
+                    }}
+                    className={`flex-1 flex flex-col items-center py-2 sm:py-2.5 gap-0.5 relative transition-all ${isFuture ? 'opacity-30' : ''} ${isClickable ? 'cursor-pointer hover:opacity-80' : ''}`}
                   >
                     {/* Connector */}
                     {idx < STEPS.length - 1 && (
@@ -103,6 +124,18 @@ export default function WizardLayout() {
 
       {/* ── Content ──────────────────────────────────────────────────────────── */}
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-8">
+        
+        {/* NUEVO: Botón explícito para volver atrás */}
+        {canGoBack && (
+          <button
+            onClick={handleGoBack}
+            className="mb-6 flex items-center gap-2 text-sm font-semibold text-[#4272BB] hover:text-[#003257] transition-colors bg-white px-4 py-2 rounded-xl border border-[#d3e2f0] shadow-sm w-fit"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Volver para repasar
+          </button>
+        )}
+
         {subtopicState.currentStep === 'intro'           && <ReadingStep         subtopicData={subtopicData} subtopicState={subtopicState} />}
         {subtopicState.currentStep === 'video'           && <VideoStep           subtopicData={subtopicData} subtopicState={subtopicState} />}
         {subtopicState.currentStep === 'podcast'         && <PodcastStep         subtopicData={subtopicData} subtopicState={subtopicState} />}
