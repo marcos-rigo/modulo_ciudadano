@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, KeyboardEvent, ChangeEvent, FormEvent } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   BookOpen, BrainCircuit, BadgeCheck, ShieldCheck,
   Info, ChevronRight, Loader2, CheckCircle2, GraduationCap,
@@ -239,6 +240,7 @@ interface RegistrationFormProps {
 
 export default function RegistrationForm({ defaultMode = 'login' }: RegistrationFormProps) {
   const registerUser = useAppStore((s) => s.registerUser)
+  const router = useRouter()
 
   const [isLogin, setIsLogin]               = useState(defaultMode === 'register' ? false : true)
   const [form, setForm]                     = useState<FormState>({
@@ -304,6 +306,7 @@ export default function RegistrationForm({ defaultMode = 'login' }: Registration
           const { credential, userData } = await loginWithFirebase(form.email, form.password)
           const displayName = credential.user.displayName || userData?.fullName || 'Usuario'
           registerUser({ fullName: displayName, email: form.email, dni: userData?.dni || '', consent: true })
+          router.push('/dashboard/inicio')
         } else {
         const fullName = `${form.lastName.trim()}, ${form.firstName.trim()}`
         await registerWithFirebase({
