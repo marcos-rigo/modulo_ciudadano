@@ -15,9 +15,9 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Ciudadanía Digital para Tucumán',
+  title: 'Ciudadanía Presente - Tucumán',
   description:
-    'Plataforma educativa de la Secretaría de Participación Ciudadana del Ministerio de Seguridad de Tucumán. Formación en competencias digitales para ciudadanos.',
+    'Plataforma educativa de Ciudadanía Presente. Formación en competencias digitales para ciudadanos. Secretaría de Participación Ciudadana - José Farhat.',
   generator: 'v0.app',
 }
 

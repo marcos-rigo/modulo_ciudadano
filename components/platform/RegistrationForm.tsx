@@ -87,7 +87,7 @@ function maxBirthDate() {
 const FEATURES: { Icon: LucideIcon; title: string; desc: string }[] = [
   { Icon: BookOpen,     title: 'Dimensión Cognitiva',    desc: '3 subtemas con lectura, video y podcast' },
   { Icon: BrainCircuit, title: 'Evaluación interactiva', desc: 'Quiz de 10 preguntas al finalizar'       },
-  { Icon: BadgeCheck,   title: 'Certificado oficial',    desc: 'Secretaría de Participación Ciudadana'   },
+  { Icon: BadgeCheck,   title: 'Certificado oficial',    desc: 'Ciudadanía Presente - José Farhat'   },
   { Icon: ShieldCheck,  title: 'Datos protegidos',       desc: 'Información usada solo para estadísticas'},
 ]
 
@@ -233,10 +233,14 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function RegistrationForm() {
+interface RegistrationFormProps {
+  defaultMode?: 'login' | 'register'
+}
+
+export default function RegistrationForm({ defaultMode = 'login' }: RegistrationFormProps) {
   const registerUser = useAppStore((s) => s.registerUser)
 
-  const [isLogin, setIsLogin]               = useState(true)
+  const [isLogin, setIsLogin]               = useState(defaultMode === 'register' ? false : true)
   const [form, setForm]                     = useState<FormState>({
     firstName: '', lastName: '', email: '', dni: '',
     birthDate: '', pais: '', provincia: '', ciudad: '',
