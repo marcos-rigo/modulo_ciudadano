@@ -10,12 +10,15 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
   sendEmailVerification,     
-  sendPasswordResetEmail,    
+  sendPasswordResetEmail,  
+  reload,  
+  signOut,
   type UserCredential,
 } from 'firebase/auth'
 import {
   doc,
   setDoc,
+  getDoc,
   serverTimestamp,
 } from 'firebase/firestore'
 import { auth, db } from './firebase'
@@ -68,25 +71,27 @@ export async function registerWithFirebase(payload: RegisterPayload): Promise<Us
   await sendEmailVerification(credential.user).catch(() => {/* non-blocking */})
 
   // Guardar perfil completo en Firestore → colección "usuarios"
-  await setDoc(doc(db, 'usuarios', credential.user.uid), {
-    uid:             credential.user.uid,
-    firstName:       profile.firstName,
-    lastName:        profile.lastName,
-    fullName:        profile.fullName,
-    email:           profile.email,
-    dni:             profile.dni,
-    birthDate:       profile.birthDate,
-    pais:            profile.pais,
-    provincia:       profile.provincia,
-    ciudad:          profile.ciudad,
-    telefono:        profile.telefono || null,
-    nivelEducativo:  profile.nivelEducativo || null,
-    genero:          profile.genero || null,
+    await setDoc(doc(db, 'usuarios', credential.user.uid), {
+    uid: credential.user.uid,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    fullName: profile.fullName,
+    email: profile.email,
+    dni: profile.dni,
+    birthDate: profile.birthDate,
+    pais: profile.pais,
+    provincia: profile.provincia,
+    ciudad: profile.ciudad,
+    telefono: profile.telefono || null,
+    nivelEducativo: profile.nivelEducativo || null,
+    genero: profile.genero || null,
     modulosCompletados: 0,
     certificadoEmitido: false,
-    creadoEn:        serverTimestamp(),
-    actualizadoEn:   serverTimestamp(),
-  }).catch(() => {/* non-blocking — no interrumpir el flujo si falla Firestore */})
+    creadoEn: serverTimestamp(),
+    actualizadoEn: serverTimestamp(),
+  }).catch(() => {/* non-blocking */})
+
+  await signOut(auth).catch(() => {/* non-blocking */})
 
   return credential
 }
@@ -95,16 +100,26 @@ export async function registerWithFirebase(payload: RegisterPayload): Promise<Us
 export async function loginWithFirebase(
   email: string,
   password: string,
-): Promise<UserCredential> {
+) {
   const credential = await signInWithEmailAndPassword(auth, email, password)
     .catch((err) => { throw new Error(humanizeFirebaseError(err.code)) })
-    
-  // VALIDAR QUE EL CORREO ESTÉ VERIFICADO
-  if (!credential.user.emailVerified) {
-    throw new Error('Por favor, verificá tu correo electrónico antes de ingresar. Revisá tu bandeja de entrada o correo no deseado (spam).')
+
+  // Forzar actualización del estado del usuario en Firebase
+  await reload(credential.user)
+
+  // Leer nuevamente el usuario ya refrescado
+  const refreshedUser = auth.currentUser
+
+  if (!refreshedUser?.emailVerified) {
+    throw new Error(
+      'Por favor, verificá tu correo electrónico antes de ingresar. Revisá tu bandeja de entrada o correo no deseado (spam).'
+    )
   }
 
-  return credential
+  const userDoc = await getDoc(doc(db, 'usuarios', credential.user.uid))
+  const userData = userDoc.exists() ? userDoc.data() : null
+
+  return { credential, userData }
 }
 
 // ── Recuperar Contraseña ──────────────────────────────────────────────────────

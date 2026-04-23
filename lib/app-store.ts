@@ -27,8 +27,14 @@ const initialSubtopics = [
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      screen: 'registration',
-      user: null,
+      //screen: 'registration',
+      screen: 'dashboard',
+      //user: null,
+      user: { 
+  fullName: 'Usuario de Prueba', 
+  dni: '12345678', 
+  email: 'test@test.com' 
+} as UserData,
       activeSubtopicId: null,
       subtopics: initialSubtopics,
 

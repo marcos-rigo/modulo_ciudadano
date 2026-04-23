@@ -9,6 +9,7 @@ import {
 import { useAppStore } from '@/lib/app-store'
 import { registerWithFirebase, loginWithFirebase ,resetPasswordWithFirebase} from '@/lib/firebase-auth'
 
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FormState {
   firstName:      string
@@ -296,9 +297,9 @@ export default function RegistrationForm() {
     setIsSubmitting(true)
     try {
       if (isLogin) {
-          const cred = await loginWithFirebase(form.email, form.password)
-          const displayName = cred.user.displayName || 'Usuario'
-          registerUser({ fullName: displayName, email: form.email, dni: '', consent: true })
+          const { credential, userData } = await loginWithFirebase(form.email, form.password)
+          const displayName = credential.user.displayName || userData?.fullName || 'Usuario'
+          registerUser({ fullName: displayName, email: form.email, dni: userData?.dni || '', consent: true })
         } else {
         const fullName = `${form.lastName.trim()}, ${form.firstName.trim()}`
         await registerWithFirebase({
