@@ -357,12 +357,19 @@ export default function RegistrationForm({ defaultMode = 'login' }: Registration
       `}</style>
 
       {/* ── Topbar ─────────────────────────────────────────────────────────── */}
-      <header className="flex-shrink-0 h-14 flex items-center border-b border-white/[0.08] px-4 sm:px-6 lg:px-8">
+      <header className="flex-shrink-0 h-14 flex items-center justify-between border-b border-white/[0.08] px-4 sm:px-6 lg:px-8">
 
         {/* Mobile: logo centrado */}
-        <div className="flex lg:hidden w-full justify-center">
+        <div className="flex lg:hidden w-full justify-center relative">
           <a href="https://josefarhat.com/" rel="noopener noreferrer">
             <img src="/logo/marcaJFb.png" alt="José Farhat" className="h-8 w-auto object-contain" />
+          </a>
+          <a
+            href="/modulos"
+            className="absolute right-0 flex items-center gap-1.5 text-white/60 hover:text-white text-xs font-medium transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            Módulos
           </a>
         </div>
 
@@ -376,6 +383,15 @@ export default function RegistrationForm({ defaultMode = 'login' }: Registration
             — Ciudadanía Presente
           </span>
         </div>
+
+        {/* Desktop: botón volver */}
+        <a
+          href="/modulos"
+          className="hidden lg:flex items-center gap-2 text-white/60 hover:text-white text-sm font-medium transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+          Volver a módulos
+        </a>
 
       </header>
 
