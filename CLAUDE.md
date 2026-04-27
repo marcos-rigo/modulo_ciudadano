@@ -21,43 +21,69 @@ This is a **Next.js 16 + React 19** app using the App Router. It's an educationa
 
 | Route | Description |
 |---|---|
-| `/modulos` | Landing page — grid of available/upcoming civic modules |
-| `/` | Login/Register page (mode controlled via `?mode=login` or `?mode=register`) |
-| `/dashboard/inicio` | Main dashboard (authenticated users) |
-
-Navigation is done via `useRouter` from `next/navigation`. The `/modulos` page checks `useAppStore.getState().screen` to decide whether to redirect to `/dashboard/inicio` or `/` (login).
+| `/modulos` | Public marketing landing page — grid of available/upcoming civic modules |
+| `/` | Login/Register page (mode via `?mode=login` or `?mode=register`) |
+| `/dashboard/inicio` | Main dashboard — renders `Dashboard`, `WizardLayout`, or `Certificate` based on Zustand `screen` |
+| `/api/auth/register` | POST — register user in MySQL |
+| `/api/auth/login` | POST — login + returns progress data |
+| `/api/auth/reset-password` | POST — request or confirm password reset |
+| `/api/progress/sync` | POST — persist wizard progress to MySQL |
 
 ### State Management
 
-All app state lives in a **Zustand** store with `persist` middleware (`lib/app-store.ts`). The persistence key is `'ciudadania-digital-state'` (localStorage).
+All UI state lives in a **Zustand** store (`lib/app-store.ts`) with `persist` middleware (key: `'ciudadania-digital-state'`, localStorage).
 
 Key state shape (defined in `lib/types.ts`):
 - `screen`: `'registration' | 'dashboard' | 'wizard' | 'certificate'`
-- `user`: `UserData | null`
-- `activeSubtopicId`: which subtopic is currently open in the wizard
+- `user`: `UserData | null` — includes `id: number` (MySQL primary key)
+- `activeSubtopicId`: which subtopic is open in the wizard
 - `subtopics`: array of `SubtopicState` (status, currentStep, score, flags)
 
-**Note:** `app-store.ts` currently has the initial state hardcoded to `screen: 'dashboard'` with a test user — this is a dev convenience, not production state.
+**Dev mode:** When `NODE_ENV === 'development'`, the store ignores localStorage and always starts with a test user on `screen: 'dashboard'`. No login required to access the wizard. In production, localStorage is used normally and login is enforced.
+
+### Auth & Database
+
+**Backend:** MySQL on Hostinger (`srv884.hstgr.io`). No Firebase — it has been fully removed.
+
+**DB layer:** `lib/db.ts` exposes a `query<T>()` helper backed by a `mysql2` connection pool. All queries use `?` placeholders (never string concatenation).
+
+**Auth logic:** `lib/mysql-auth.ts` contains:
+- `registerUser()` — bcrypt hash + INSERT into `usuarios`, `estado_usuario`, `progreso_subtemas`
+- `loginUser()` — bcrypt compare + returns `{ user, progress }` for store hydration
+- `getUserProgress()` / `updateProgress()` — read/write `estado_usuario` + `progreso_subtemas`
+- `resetPasswordRequest()` / `resetPasswordConfirm()` — token-based reset via `password_resets` table
+
+**DB schema:** `schema.sql` at project root. Run it once in phpMyAdmin. See `DATABASE_SETUP.md` for step-by-step instructions including Vercel IP allowlist for Hostinger MySQL remote access.
+
+**Auth flow in the frontend:** `RegistrationForm.tsx` calls `/api/auth/login` or `/api/auth/register` via `fetch`. On successful login, the response `{ user, progress }` is loaded into Zustand with `registerUser()` + `loadProgress()`.
+
+### Progress Sync
+
+Every time the user advances a wizard step or submits a quiz, `syncProgress()` (a Zustand action) calls `POST /api/progress/sync` fire-and-forget. If the call fails, the UI is not blocked — localStorage acts as fallback.
+
+Sync is triggered from store actions: `setWizardStep`, `submitQuiz`, `goToDashboard`. `reset()` sends a final sync to restore the user to initial state in MySQL.
+
+`fullName` is stored as `"Apellido, Nombre"` (last name first). The Dashboard greeting splits on `', '` to extract the first name.
 
 ### Learning Wizard Flow
 
-Each subtopic progresses through a sequential wizard with these steps (`WizardStep` type):
+Each subtopic progresses through a sequential wizard:
 
 `intro` → `video` → `podcast` → `recommendations` → `quiz` → `result`
 
-- Steps are rendered by `components/platform/WizardLayout.tsx` which switches on `subtopicState.currentStep`
-- Each step is its own component in `components/platform/steps/`
-- Backward navigation is blocked once the user reaches `quiz` or `result`
-- A subtopic is `passed` when `score >= 8`; passing unlocks the next subtopic (`id + 1`)
-- After all subtopics pass, `goToDashboard()` transitions to `screen: 'certificate'`
+Steps map to components in `components/platform/steps/`:
+- `intro` → `ReadingStep`
+- `video` → `VideoStep`
+- `podcast` → `PodcastStep`
+- `recommendations` → `RecommendationsStep`
+- `quiz` → `QuizStep`
+- `result` → `CompletionStep`
+
+`WizardLayout.tsx` handles navigation. Backward navigation is blocked at `quiz` and `result`. A subtopic is `passed` when `score >= 8`; passing unlocks the next subtopic (`id + 1`). When all subtopics pass, `goToDashboard()` transitions to `screen: 'certificate'`.
 
 ### Content Data
 
-All subtopic content (text, video URLs, podcast URLs, quiz questions, recommendations) is hardcoded in `lib/mock-data.ts` as `SUBTOPICS_DATA: SubtopicData[]`. There are 3 subtopics. This is static data — no API calls.
-
-### Firebase
-
-`lib/firebase.ts` initializes Firebase Auth and Firestore via env vars (`NEXT_PUBLIC_FIREBASE_*`). `lib/firebase-auth.ts` contains auth helpers. Firebase is initialized but may not be fully wired into all flows.
+All subtopic content (text, video URLs, podcast URLs, quiz questions, recommendations) is hardcoded in `lib/mock-data.ts` as `SUBTOPICS_DATA: SubtopicData[]`. There are 3 subtopics. This is static data — no API calls for content.
 
 ### UI Components
 

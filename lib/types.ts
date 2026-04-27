@@ -1,8 +1,9 @@
 export interface UserData {
+  id:       number
   fullName: string
-  email: string
-  dni: string
-  consent: boolean
+  email:    string
+  dni:      string
+  consent:  boolean
 }
 
 export type SubtopicStatus = 'locked' | 'in-progress' | 'completed'

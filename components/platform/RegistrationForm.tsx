@@ -8,7 +8,6 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useAppStore } from '@/lib/app-store'
-import { registerWithFirebase, loginWithFirebase ,resetPasswordWithFirebase} from '@/lib/firebase-auth'
 
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -239,7 +238,8 @@ interface RegistrationFormProps {
 }
 
 export default function RegistrationForm({ defaultMode = 'login' }: RegistrationFormProps) {
-  const registerUser = useAppStore((s) => s.registerUser)
+  const registerUser  = useAppStore((s) => s.registerUser)
+  const loadProgress  = useAppStore((s) => s.loadProgress)
   const router = useRouter()
 
   const [isLogin, setIsLogin]               = useState(defaultMode === 'register' ? false : true)
@@ -250,7 +250,7 @@ export default function RegistrationForm({ defaultMode = 'login' }: Registration
     password: '', confirmPassword: '', consent: false,
   })
   const [errors, setErrors]                 = useState<FormErrors>({})
-  const [firebaseError, setFirebaseError]   = useState<string | null>(null)
+  const [authError, setAuthError]   = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting]     = useState(false)
   const [focused, setFocused]               = useState<keyof FormState | null>(null)
@@ -270,7 +270,7 @@ export default function RegistrationForm({ defaultMode = 'login' }: Registration
     onChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       setForm(f => ({ ...f, [key]: e.target.value }))
       if (errors[key]) setErrors(er => ({ ...er, [key]: undefined }))
-      if (firebaseError) setFirebaseError(null)
+      if (authError) setAuthError(null)
       if (successMessage) setSuccessMessage(null)
     },
     onFocus: () => setFocused(key),
@@ -280,15 +280,21 @@ export default function RegistrationForm({ defaultMode = 'login' }: Registration
 
   const handleForgotPassword = async () => {
     if (!form.email.trim()) {
-      setFirebaseError('Por favor, escribí tu correo en el campo de arriba y volvé a tocar "¿Olvidaste tu contraseña?".')
+      setAuthError('Por favor, escribí tu correo en el campo de arriba y volvé a tocar "¿Olvidaste tu contraseña?".')
       return
     }
     setIsSubmitting(true)
     try {
-      await resetPasswordWithFirebase(form.email.trim())
-      setFirebaseError('✅ Te enviamos un correo. Revisá tu bandeja de entrada (o spam) para restablecer la contraseña.')
+      const res = await fetch('/api/auth/reset-password', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: form.email.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setAuthError('✅ Si el correo existe, recibirás instrucciones para restablecer tu contraseña.')
     } catch (err: unknown) {
-      setFirebaseError(err instanceof Error ? err.message : 'Error al enviar el correo.')
+      setAuthError(err instanceof Error ? err.message : 'Error al enviar el correo.')
     } finally {
       setIsSubmitting(false)
     }
@@ -296,37 +302,41 @@ export default function RegistrationForm({ defaultMode = 'login' }: Registration
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setFirebaseError(null)
+    setAuthError(null)
     setSuccessMessage(null)
     const errs = validateForm(form, isLogin)
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
     setIsSubmitting(true)
     try {
       if (isLogin) {
-          const { credential, userData } = await loginWithFirebase(form.email, form.password)
-          const displayName = credential.user.displayName || userData?.fullName || 'Usuario'
-          registerUser({ fullName: displayName, email: form.email, dni: userData?.dni || '', consent: true })
-          router.push('/dashboard/inicio')
-        } else {
-        const fullName = `${form.lastName.trim()}, ${form.firstName.trim()}`
-        await registerWithFirebase({
-          firstName:       form.firstName.trim(),
-          lastName:        form.lastName.trim(),
-          fullName,
-          email:           form.email.trim(),
-          dni:             form.dni.trim(),
-          birthDate:       form.birthDate,
-          pais:            form.pais.trim(),
-          provincia:       form.provincia.trim(),
-          ciudad:          form.ciudad.trim(),
-          telefono:        form.telefono.trim(),
-          nivelEducativo:  form.nivelEducativo,
-          genero:          form.genero,
-          password:        form.password,
+        const res = await fetch('/api/auth/login', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ email: form.email.trim(), password: form.password }),
         })
-        
-        // REGISTRO EXITOSO: limpiar form y mostrar mensaje de verificación
-        setSuccessMessage('Revisá tu correo electrónico para verificar tu cuenta y poder iniciar sesión.')
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error)
+
+        registerUser({ id: data.user.id, fullName: data.user.fullName, email: data.user.email, dni: data.user.dni, consent: true })
+        if (data.progress) loadProgress(data.progress)
+        router.push('/dashboard/inicio')
+      } else {
+        const fullName = `${form.lastName.trim()}, ${form.firstName.trim()}`
+        const res = await fetch('/api/auth/register', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            email:    form.email.trim(),
+            password: form.password,
+            fullName,
+            dni:      form.dni.trim(),
+            ciudad:   form.ciudad.trim(),
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error)
+
+        setSuccessMessage('Cuenta creada. Ya podés iniciar sesión.')
         setIsLogin(true)
         setForm({
           firstName: '', lastName: '', email: '', dni: '',
@@ -338,7 +348,7 @@ export default function RegistrationForm({ defaultMode = 'login' }: Registration
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Ocurrió un error inesperado. Intentá de nuevo.'
-      setFirebaseError(msg)
+      setAuthError(msg)
     } finally {
       setIsSubmitting(false)
     }
@@ -455,7 +465,7 @@ export default function RegistrationForm({ defaultMode = 'login' }: Registration
             <div className="flex bg-[#EEF4FB] rounded-xl p-1 gap-1">
               {([{k:true,l:'Iniciar Sesión'},{k:false,l:'Crear Cuenta'}] as const).map(tab=>(
                 <button key={String(tab.k)} type="button"
-                  onClick={()=>{ setIsLogin(tab.k); setErrors({}); setFirebaseError(null); setSuccessMessage(null) }}
+                  onClick={()=>{ setIsLogin(tab.k); setErrors({}); setAuthError(null); setSuccessMessage(null) }}
                   className={['flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all',
                     isLogin===tab.k?'bg-white text-[#003257] shadow-sm':'text-[#8ca9be] hover:text-[#5a7a8e]',
                   ].join(' ')}>
@@ -475,10 +485,10 @@ export default function RegistrationForm({ defaultMode = 'login' }: Registration
             </div>
 
             {/* Firebase error — solo errores reales */}
-            {firebaseError && (
+            {authError && (
               <div className="flex gap-2 items-start p-3 rounded-xl bg-red-50 border border-red-200">
                 <span className="text-red-500 flex-shrink-0 text-sm mt-0.5">⚠</span>
-                <span className="text-[11px] text-red-700 leading-relaxed">{firebaseError}</span>
+                <span className="text-[11px] text-red-700 leading-relaxed">{authError}</span>
               </div>
             )}
 
